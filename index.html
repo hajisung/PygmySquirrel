@@ -1,0 +1,430 @@
+<title>집중 기록장</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 레이아웃: 휴대폰 한 손 사용 기준 한 줄 세로 배치 — 타이머 → 과목 → 오늘 기록 → 이번 주 */
+:root {
+  --bg: #f3f6f3;
+  --surface: #ffffff;
+  --ink: #1c2a27;
+  --muted: #5d6e69;
+  --line: #d9e2de;
+  --focus: #2c6e5b;      /* 집중: 실험실 초록 */
+  --focus-soft: #dcebe5;
+  --rest: #b9711f;       /* 휴식: 호박색 */
+  --rest-soft: #f5e6d3;
+  --font-display: "Do Hyeon", "IBM Plex Sans KR", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111715; --surface: #1a2220; --ink: #e3ebe7; --muted: #95a6a0; --line: #2c3834;
+    --focus: #6cc3a6; --focus-soft: #1f3a32; --rest: #e3a75f; --rest-soft: #3a2c1c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111715; --surface: #1a2220; --ink: #e3ebe7; --muted: #95a6a0; --line: #2c3834;
+  --focus: #6cc3a6; --focus-soft: #1f3a32; --rest: #e3a75f; --rest-soft: #3a2c1c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+}
+.wrap {
+  max-width: 460px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 30px; margin: 0; letter-spacing: -0.5px; }
+.date { color: var(--muted); font-size: 13px; }
+h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; }
+
+/* 타이머 */
+.timer {
+  --tone: var(--focus); --tone-soft: var(--focus-soft);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+  padding: 20px 18px 22px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.timer.rest { --tone: var(--rest); --tone-soft: var(--rest-soft); }
+.modes { display: flex; gap: 6px; background: var(--bg); padding: 4px; border-radius: 999px; }
+.modes button {
+  border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 500;
+  padding: 6px 16px; border-radius: 999px; cursor: pointer;
+}
+.modes button[aria-pressed="true"] { background: var(--tone); color: var(--surface); }
+.ring { position: relative; width: min(240px, 70vw); aspect-ratio: 1; max-width: 100%; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { fill: none; stroke: var(--tone-soft); stroke-width: 10; }
+.ring .bar { fill: none; stroke: var(--tone); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .3s linear; }
+.ring .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.time { font-family: var(--font-num); font-size: 48px; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+.now-subject { color: var(--tone); font-weight: 700; font-size: 14px; }
+.lengths { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; font-size: 13px; color: var(--muted); align-items: center; }
+.lengths button {
+  border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit;
+  padding: 3px 10px; border-radius: 8px; cursor: pointer; font-family: var(--font-num);
+}
+.lengths button[aria-pressed="true"] { border-color: var(--tone); color: var(--tone); font-weight: 700; }
+.controls { display: flex; gap: 10px; width: 100%; }
+.btn {
+  flex: 1; border: 0; border-radius: 14px; padding: 14px; font: inherit; font-weight: 700; font-size: 16px; cursor: pointer;
+}
+.btn.main { background: var(--tone); color: var(--surface); flex: 2; }
+.btn.sub { background: var(--tone-soft); color: var(--tone); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--tone, var(--focus)); outline-offset: 2px; }
+
+/* 과목 */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit;
+  padding: 7px 14px; border-radius: 999px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.add { display: flex; gap: 8px; margin-top: 10px; }
+.add input {
+  flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 10px; padding: 9px 12px; font: inherit;
+}
+.add button { border: 0; background: var(--focus-soft); color: var(--focus); border-radius: 10px; padding: 0 14px; font: inherit; font-weight: 700; cursor: pointer; }
+
+/* 기록 */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.total { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+.total strong { font-family: var(--font-display); font-weight: 400; font-size: 26px; }
+.badge { font-size: 11px; font-weight: 700; color: var(--rest); background: var(--rest-soft); padding: 2px 8px; border-radius: 6px; }
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.row { display: grid; grid-template-columns: 72px 1fr 64px; gap: 10px; align-items: center; font-size: 14px; }
+.row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .track2 { height: 10px; background: var(--focus-soft); border-radius: 5px; overflow: hidden; }
+.row .fill { height: 100%; background: var(--focus); border-radius: 5px; }
+.row .mins { text-align: right; font-family: var(--font-num); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.empty { color: var(--muted); font-size: 14px; margin: 0; }
+
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 130px; }
+.day { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+.day .col { width: 100%; max-width: 28px; background: var(--focus-soft); border-radius: 6px 6px 3px 3px; min-height: 3px; }
+.day.today .col { background: var(--focus); }
+.day .v { font-family: var(--font-num); font-size: 11px; color: var(--muted); }
+.day .d { font-size: 12px; color: var(--muted); }
+.day.today .d { color: var(--ink); font-weight: 700; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 12px; font-size: 14px;
+  max-width: calc(100% - 32px);
+}
+.tip { color: var(--muted); font-size: 12px; margin: 0; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .ring .bar { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>집중 기록장</h1>
+    <span class="date" id="today"></span>
+  </header>
+
+  <section class="timer" id="timer">
+    <div class="modes" role="group" aria-label="모드">
+      <button id="modeFocus" aria-pressed="true">집중</button>
+      <button id="modeRest" aria-pressed="false">휴식</button>
+    </div>
+    <div class="ring">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="track" cx="60" cy="60" r="52"></circle>
+        <circle class="bar" id="bar" cx="60" cy="60" r="52"></circle>
+      </svg>
+      <div class="center">
+        <div class="time" id="time">25:00</div>
+        <div class="now-subject" id="nowSubject">생명과학</div>
+      </div>
+    </div>
+    <div class="lengths" id="lengths"></div>
+    <div class="controls">
+      <button class="btn sub" id="resetBtn">처음으로</button>
+      <button class="btn main" id="startBtn">시작</button>
+    </div>
+    <p class="tip">집중이 끝나면 공부한 시간이 과목별로 저장돼요. 중간에 ‘처음으로’를 눌러도 1분 이상 공부했다면 저장돼요.</p>
+  </section>
+
+  <section>
+    <h2>과목</h2>
+    <div class="chips" id="chips"></div>
+    <form class="add" id="addForm">
+      <input id="newSubject" placeholder="새 과목 이름 (예: 물리학)" maxlength="10">
+      <button type="submit">추가</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>오늘 공부</h2>
+    <div class="card">
+      <div class="total"><strong id="todayTotal">0분</strong><span class="badge" id="sampleBadge" hidden>예시 기록</span></div>
+      <div class="rows" id="rows"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>최근 7일 (분)</h2>
+    <div class="card">
+      <div class="week" id="week"></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  // ---------- 저장소 (휴대폰 브라우저 안에 저장) ----------
+  const KEY = "focus-log-v1";
+  function load() {
+    try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {}
+    return null;
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  const state = load() || {
+    subjects: ["생명과학", "화학", "수학", "영어"],
+    current: "생명과학",
+    focusMin: 25, restMin: 5,
+    records: {}           // { "2026-11-06": { "생명과학": 초, ... } }
+  };
+
+  // ---------- 날짜 도우미 ----------
+  function dayKey(d) {
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + dd;
+  }
+  const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+  function fmtMin(sec) {
+    const m = Math.round(sec / 60);
+    if (m < 60) return m + "분";
+    return Math.floor(m / 60) + "시간 " + (m % 60 ? (m % 60) + "분" : "");
+  }
+
+  // 기록이 하나도 없을 때 보여 줄 예시 (저장되지 않음)
+  function sampleRecords() {
+    const r = {}, now = new Date(), mins = [40, 75, 0, 90, 55, 110, 0];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(now.getDate() - i);
+      const t = mins[6 - i];
+      if (i === 0) r[dayKey(d)] = { "생명과학": 75 * 60, "화학": 45 * 60, "수학": 30 * 60 };
+      else if (t) r[dayKey(d)] = { "생명과학": t * 60 };
+    }
+    return r;
+  }
+  function viewRecords() {
+    return Object.keys(state.records).length ? state.records : sampleRecords();
+  }
+
+  // ---------- 타이머 ----------
+  const timer = { mode: "focus", running: false, endAt: 0, remaining: state.focusMin * 60, total: state.focusMin * 60, startedFor: null };
+  const C = 2 * Math.PI * 52;
+  const $ = (id) => document.getElementById(id);
+  $("bar").style.strokeDasharray = C;
+
+  function modeLength(mode) { return (mode === "focus" ? state.focusMin : state.restMin) * 60; }
+
+  function setMode(mode) {
+    timer.mode = mode; timer.running = false;
+    timer.total = timer.remaining = modeLength(mode);
+    render();
+  }
+
+  function addStudy(sec, subject) {
+    const k = dayKey(new Date());
+    state.records[k] = state.records[k] || {};
+    state.records[k][subject] = (state.records[k][subject] || 0) + sec;
+    save();
+  }
+
+  function tick() {
+    if (!timer.running) return;
+    timer.remaining = Math.max(0, Math.round((timer.endAt - Date.now()) / 1000));
+    if (timer.remaining === 0) finish();
+    renderTimer();
+  }
+
+  function finish() {
+    timer.running = false;
+    beep();
+    releaseWake();
+    if (timer.mode === "focus") {
+      addStudy(timer.total, timer.startedFor);
+      toast(timer.startedFor + " " + fmtMin(timer.total) + " 저장했어요. 이제 쉬어요!");
+      setMode("rest");
+    } else {
+      toast("휴식 끝! 다시 집중해 볼까요?");
+      setMode("focus");
+    }
+  }
+
+  $("startBtn").onclick = function () {
+    unlockAudio();
+    if (timer.running) {                       // 일시정지
+      timer.running = false;
+      releaseWake();
+    } else {                                   // 시작 / 이어하기
+      if (timer.remaining === timer.total) timer.startedFor = state.current;
+      timer.endAt = Date.now() + timer.remaining * 1000;
+      timer.running = true;
+      requestWake();
+    }
+    render();
+  };
+
+  $("resetBtn").onclick = function () {
+    if (timer.mode === "focus") {
+      const studied = timer.total - timer.remaining;
+      if (studied >= 60) {
+        addStudy(studied, timer.startedFor || state.current);
+        toast((timer.startedFor || state.current) + " " + fmtMin(studied) + " 저장했어요.");
+      }
+    }
+    releaseWake();
+    setMode(timer.mode);
+  };
+
+  $("modeFocus").onclick = () => { if (!timer.running) setMode("focus"); };
+  $("modeRest").onclick = () => { if (!timer.running) setMode("rest"); };
+
+  // ---------- 소리 (버튼을 누른 뒤에만 낼 수 있음) ----------
+  let audio = null;
+  function unlockAudio() {
+    try { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === "suspended") audio.resume(); } catch (e) {}
+  }
+  function beep() {
+    if (!audio) return;
+    try {
+      [0, 0.35, 0.7].forEach(function (t) {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+        g.gain.setValueAtTime(0.25, audio.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.25);
+        o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.3);
+      });
+    } catch (e) {}
+    try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
+  }
+
+  // 화면 꺼짐 방지 (지원하는 폰에서만)
+  let wake = null;
+  function requestWake() { try { navigator.wakeLock && navigator.wakeLock.request("screen").then(w => wake = w).catch(() => {}); } catch (e) {} }
+  function releaseWake() { try { wake && wake.release(); } catch (e) {} wake = null; }
+
+  // ---------- 과목 ----------
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const name = $("newSubject").value.trim();
+    if (!name) return;
+    if (state.subjects.indexOf(name) === -1) state.subjects.push(name);
+    state.current = name; $("newSubject").value = "";
+    save(); render();
+  });
+
+  // ---------- 화면 그리기 ----------
+  function renderTimer() {
+    const m = Math.floor(timer.remaining / 60), s = timer.remaining % 60;
+    $("time").textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+    $("bar").style.strokeDashoffset = C * (1 - timer.remaining / timer.total);
+  }
+
+  function render() {
+    const now = new Date();
+    $("today").textContent = (now.getMonth() + 1) + "월 " + now.getDate() + "일 " + WEEK[now.getDay()] + "요일";
+
+    // 타이머 영역
+    $("timer").classList.toggle("rest", timer.mode === "rest");
+    $("modeFocus").setAttribute("aria-pressed", timer.mode === "focus");
+    $("modeRest").setAttribute("aria-pressed", timer.mode === "rest");
+    $("startBtn").textContent = timer.running ? "일시정지" : (timer.remaining === timer.total ? "시작" : "이어하기");
+    $("nowSubject").textContent = timer.mode === "focus" ? (timer.running || timer.remaining < timer.total ? timer.startedFor : state.current) : "잠깐 쉬는 중";
+
+    const opts = timer.mode === "focus" ? [15, 25, 50] : [5, 10, 15];
+    const cur = timer.mode === "focus" ? state.focusMin : state.restMin;
+    const L = $("lengths"); L.innerHTML = "<span>시간</span>";
+    opts.forEach(function (n) {
+      const b = document.createElement("button");
+      b.textContent = n + "분"; b.setAttribute("aria-pressed", n === cur);
+      b.disabled = timer.running;
+      b.onclick = function () {
+        if (timer.mode === "focus") state.focusMin = n; else state.restMin = n;
+        save(); setMode(timer.mode);
+      };
+      L.appendChild(b);
+    });
+    renderTimer();
+
+    // 과목 칩
+    const chips = $("chips"); chips.innerHTML = "";
+    state.subjects.forEach(function (s) {
+      const b = document.createElement("button");
+      b.className = "chip"; b.textContent = s; b.setAttribute("aria-pressed", s === state.current);
+      b.onclick = function () { state.current = s; save(); render(); };
+      chips.appendChild(b);
+    });
+
+    // 오늘 기록
+    const recs = viewRecords();
+    const isSample = !Object.keys(state.records).length;
+    $("sampleBadge").hidden = !isSample;
+    const todayRec = recs[dayKey(now)] || {};
+    const entries = Object.keys(todayRec).map(k => [k, todayRec[k]]).sort((a, b) => b[1] - a[1]);
+    const totalSec = entries.reduce((a, e) => a + e[1], 0);
+    $("todayTotal").textContent = fmtMin(totalSec);
+    const rows = $("rows"); rows.innerHTML = "";
+    if (!entries.length) {
+      rows.innerHTML = '<p class="empty">아직 오늘 기록이 없어요. 과목을 고르고 시작을 눌러 보세요.</p>';
+    }
+    const maxSec = entries.length ? entries[0][1] : 1;
+    entries.forEach(function (e) {
+      const r = document.createElement("div"); r.className = "row";
+      r.innerHTML = '<span class="name"></span><div class="track2"><div class="fill"></div></div><span class="mins"></span>';
+      r.querySelector(".name").textContent = e[0];
+      r.querySelector(".fill").style.width = Math.max(3, e[1] / maxSec * 100) + "%";
+      r.querySelector(".mins").textContent = Math.round(e[1] / 60) + "분";
+      rows.appendChild(r);
+    });
+
+    // 최근 7일
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(now.getDate() - i);
+      const rec = recs[dayKey(d)] || {};
+      const sec = Object.keys(rec).reduce((a, k) => a + rec[k], 0);
+      days.push({ label: WEEK[d.getDay()], min: Math.round(sec / 60), today: i === 0 });
+    }
+    const maxMin = Math.max(30, ...days.map(d => d.min));
+    const W = $("week"); W.innerHTML = "";
+    days.forEach(function (d) {
+      const el = document.createElement("div"); el.className = "day" + (d.today ? " today" : "");
+      el.innerHTML = '<span class="v"></span><div class="col"></div><span class="d"></span>';
+      el.querySelector(".v").textContent = d.min;
+      el.querySelector(".col").style.height = (d.min / maxMin * 90) + "px";
+      el.querySelector(".d").textContent = d.label;
+      W.appendChild(el);
+    });
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3000);
+  }
+
+  setInterval(tick, 250);
+  document.addEventListener("visibilitychange", tick);
+  render();
+})();
+</script>
